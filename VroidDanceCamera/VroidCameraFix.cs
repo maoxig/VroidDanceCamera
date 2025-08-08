@@ -11,7 +11,7 @@ namespace VroidDanceCamera
 {
     public class ModInitializer : IModApi
     {
-        // 调试日志开关，默认关闭
+        // 调试日志开关，默认开启
         public static bool debugLogEnabled = false;
 
         public void InitMod(Mod mod)
@@ -28,9 +28,20 @@ namespace VroidDanceCamera
     [HarmonyPatch(typeof(VRoid_Gestures), nameof(VRoid_Gestures.StartDance))]
     public class Patch_StartDance
     {
-        public static void Postfix(Animator animator, EntityPlayerLocal player)
+        public static void Prefix(Animator animator, EntityPlayerLocal player)
         {
             if (animator == null || player == null) return;
+
+            // 仅为本地玩家处理
+            bool isLocalPlayer = player == GameManager.Instance.World.GetPrimaryPlayer();
+            if (!isLocalPlayer)
+            {
+                if (ModInitializer.debugLogEnabled)
+                {
+                    Debug.Log("[VroidFix] Non-local player detected, skipping processing.");
+                }
+                return;
+            }
 
             // 查找 Camera_root/Camera_root_1/Camera 路径
             Transform cameraNode = animator.transform.Find("Camera_root/Camera_root_1/Camera");
@@ -86,35 +97,136 @@ namespace VroidDanceCamera
                 }
             }
 
-            // 处理 AudioListener：禁用 vp_FPCamera 上的 AudioListener，将其绑定到角色根节点
-            if (player.vp_FPCamera != null)
-            {
-                AudioListener cameraListener = player.vp_FPCamera.GetComponent<AudioListener>();
-                if (cameraListener != null)
-                {
-                    cameraListener.enabled = false;
-                    if (ModInitializer.debugLogEnabled)
-                    {
-                        Debug.Log("[VroidFix] Disabled AudioListener on vp_FPCamera.");
-                    }
-                }
-            }
+        }
+        public static void Postfix(Animator animator, EntityPlayerLocal player)
+        {
+            if (animator == null || player == null) return;
 
-            AudioListener playerListener = animator.gameObject.GetComponent<AudioListener>();
-            if (playerListener == null)
+            // 仅为本地玩家处理
+            bool isLocalPlayer = player == GameManager.Instance.World.GetPrimaryPlayer();
+            if (!isLocalPlayer)
             {
-                playerListener = animator.gameObject.AddComponent<AudioListener>();
                 if (ModInitializer.debugLogEnabled)
                 {
-                    Debug.Log("[VroidFix] Added AudioListener to animator root: " + animator.gameObject.name);
+                    Debug.Log("[VroidFix] Non-local player detected, skipping processing.");
+                }
+                return;
+            }
+            // 设置 DanceAudio 的 AudioSource 为 2D 音效
+            Transform danceAudio = animator.transform.Find("DanceAudio");
+            if (danceAudio != null)
+            {
+                AudioSource audioSource = danceAudio.GetComponent<AudioSource>();
+                if (audioSource != null)
+                {
+                    audioSource.spatialBlend = 0f; // 设置为 2D 音效，音量不受距离影响
+                    if (ModInitializer.debugLogEnabled)
+                    {
+                        Debug.Log($"[VroidFix] Set AudioSource on {danceAudio.gameObject.name} to 2D (spatialBlend = 0), clip: {audioSource.clip?.name}");
+                    }
+                }
+                else
+                {
+                    if (ModInitializer.debugLogEnabled)
+                    {
+                        Debug.LogWarning("[VroidFix] No AudioSource found on DanceAudio.");
+                    }
                 }
             }
             else
             {
-                playerListener.enabled = true;
                 if (ModInitializer.debugLogEnabled)
                 {
-                    Debug.Log("[VroidFix] Enabled existing AudioListener on animator root: " + animator.gameObject.name);
+                    Debug.LogWarning("[VroidFix] DanceAudio transform not found under animator.");
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(VRoid_Gestures), nameof(VRoid_Gestures.StopGestures))]
+    [HarmonyPatch(new Type[] { typeof(Animator), typeof(VRoid_AvatarManager) })]
+    public class Patch_StopGestures
+    {
+        public static void Prefix(Animator VRoidAnimator, VRoid_AvatarManager manager)
+        {
+            if (manager == null)
+            {
+                if (ModInitializer.debugLogEnabled)
+                {
+                    Debug.LogWarning("[VroidFix] StopGestures Prefix: manager is null, skipping cleanup.");
+                }
+                return;
+            }
+
+            EntityPlayerLocal player = manager.player as EntityPlayerLocal;
+            if (player == null)
+            {
+                if (ModInitializer.debugLogEnabled)
+                {
+                    Debug.LogWarning("[VroidFix] StopGestures Prefix: player is null, skipping cleanup.");
+                }
+                return;
+            }
+
+            // 仅为本地玩家处理
+            bool isLocalPlayer = player == GameManager.Instance.World.GetPrimaryPlayer();
+            if (!isLocalPlayer)
+            {
+                if (ModInitializer.debugLogEnabled)
+                {
+                    Debug.Log("[VroidFix] Non-local player detected, skipping AudioSource cleanup.");
+                }
+                return;
+            }
+
+            // 从 manager.DancerTransform 获取 Animator
+            Transform rootTransform = null;
+            if (manager.DancerTransform != null)
+            {
+                Animator dancerAnimator = manager.DancerTransform.GetComponent<Animator>();
+                if (dancerAnimator != null)
+                {
+                    rootTransform = dancerAnimator.transform;
+                }
+            }
+
+            // 恢复或停止 DanceAudio 的 AudioSource
+            if (rootTransform != null)
+            {
+                Transform danceAudio = rootTransform.Find("DanceAudio");
+                if (danceAudio != null)
+                {
+                    AudioSource audioSource = danceAudio.GetComponent<AudioSource>();
+                    if (audioSource != null)
+                    {
+                        audioSource.spatialBlend = 1f; // 恢复为 3D 音效
+                        audioSource.Stop(); // 停止播放，确保无残留
+                        if (ModInitializer.debugLogEnabled)
+                        {
+                            Debug.Log($"[VroidFix] Restored AudioSource on {danceAudio.gameObject.name} to 3D (spatialBlend = 1) and stopped, clip: {audioSource.clip?.name}");
+                        }
+                    }
+                    else
+                    {
+                        if (ModInitializer.debugLogEnabled)
+                        {
+                            Debug.LogWarning("[VroidFix] No AudioSource found on DanceAudio during cleanup.");
+                        }
+                    }
+                }
+                else
+                {
+                    if (ModInitializer.debugLogEnabled)
+                    {
+                        Debug.LogWarning("[VroidFix] DanceAudio transform not found during cleanup.");
+                    }
+                }
+            }
+            else
+            {
+                if (ModInitializer.debugLogEnabled)
+                {
+                    Debug.LogWarning("[VroidFix] DancerTransform or Animator is null, cannot clean AudioSource.");
                 }
             }
         }
@@ -130,7 +242,7 @@ namespace VroidDanceCamera
                 return;
 
             var mgr = __instance.VRoidManager();
-            if (mgr == null || mgr.NET_DanceIndex <= 0) // 未在跳舞时，使用默认镜头机制
+            if (mgr == null || mgr.NET_DanceIndex <= 0)
                 return;
 
             Animator animator = mgr.DancerTransform?.GetComponent<Animator>();

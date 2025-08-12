@@ -36,7 +36,7 @@ namespace VroidDanceCamera
         public static bool CachedEnableDanceCamera = true;
         private bool metadataLoaded = false;
         private string lastModelName = "";
-        private Rect windowRect = new Rect(Screen.width - 260f, 20f, 250f, 200f);
+        private Rect windowRect = new Rect(Screen.width - 260f, 100f, 250f, 200f);
         private int windowID = 999;
         private VRoidAvatarMetadata metadata;
         private bool guiChanged = false;

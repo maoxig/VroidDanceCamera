@@ -27,27 +27,19 @@ namespace VroidDanceCamera
     [HarmonyPatch(typeof(VRoid_Gestures), nameof(VRoid_Gestures.StartDance))]
     public class Patch_StartDance
     {
-        public static void Prefix(Animator animator, EntityPlayerLocal player)
+        public static void Prefix(Animator animator, EntityPlayer player)
         {
             if (animator == null || player == null) return;
 #if  VROIDCAMERA_DEBUG
             Debug.Log("[VroidFix] Starting dance animation for player: " + player.EntityName);
-            Debug.Log("[VroidFix] Animator: " + animator.name);
+            Debug.Log("[VroidFix] Animator: " + animator.name); // DancerTransform
 #endif
 
-            // 仅为本地玩家处理
-            bool isLocalPlayer = player == GameManager.Instance.World.GetPrimaryPlayer();
-            if (!isLocalPlayer)
-            {
-#if  VROIDCAMERA_DEBUG
-                Debug.Log("[VroidFix] Non-local player detected, skipping processing.");
-#endif
-                return;
-            }
-            // 查找 Camera_root/Camera_root_1/Camera 路径
+
+            // 查找 DancerTransform下面的Camera_root/Camera_root_1/Camera 路径
             Transform cameraNode = animator.transform.Find("Camera_root/Camera_root_1/Camera");
 
-            // 如果找到了原有的镜头层级，先删除整个 Camera_root
+            // 如果找到了原有的镜头层级，先删除整个 Camera_root，这里需要删除所有玩家客户端的 Camera_root 层级，避免锁镜头
             if (cameraNode != null)
             {
                 Transform cameraRoot = cameraNode.parent?.parent;
@@ -59,6 +51,15 @@ namespace VroidDanceCamera
 #endif
                 }
                 cameraNode = null; // 置空，后续统一创建
+            }
+            // 仅为本地玩家处理，这样只有本地玩家的镜头会被处理，避免其他玩家的镜头被锁定
+            bool isLocalPlayer = player is EntityPlayerLocal;
+            if (!isLocalPlayer)
+            {
+#if  VROIDCAMERA_DEBUG
+                Debug.Log("[VroidFix] Non-local player detected, skipping processing.");
+#endif
+                return;
             }
 
             // 情况 c：如果路径不存在，动态创建层级
@@ -99,23 +100,14 @@ namespace VroidDanceCamera
 #endif
             }
 
-            // 禁用 cameraNode 上的 AudioListener（如果存在），兼容前人错误代码
-            AudioListener cameraNodeListener = cameraNode.GetComponent<AudioListener>();
-            if (cameraNodeListener != null)
-            {
-                cameraNodeListener.enabled = false;
-#if  VROIDCAMERA_DEBUG
-                Debug.Log("[VroidFix] Disabled AudioListener on Camera_root/Camera_root_1/Camera.");
-#endif
-            }
 
         }
-        public static void Postfix(Animator animator, EntityPlayerLocal player)
+        public static void Postfix(Animator animator, EntityPlayer player)
         {
             if (animator == null || player == null) return;
 
             // 仅为本地玩家处理
-            bool isLocalPlayer = player == GameManager.Instance.World.GetPrimaryPlayer();
+            bool isLocalPlayer = player is EntityPlayerLocal;
             if (!isLocalPlayer)
             {
 #if  VROIDCAMERA_DEBUG
@@ -153,9 +145,10 @@ namespace VroidDanceCamera
 
 
     [HarmonyPatch(typeof(vp_FPCamera), "Update3rdPerson")]
-    [HarmonyAfter("Harmony.VRoidMod")] // 确保在VRoidMod之后执行，覆盖掉CameraFix的逻辑
+
     public class Patch_CorrectCameraLate
     {
+        [HarmonyAfter("Harmony.VRoidMod")] // 确保在VRoidMod之后执行，覆盖掉CameraFix的逻辑
         static void Postfix(vp_FPCamera __instance)
         {
             // 基本检查，确保玩家和 VRoid 数据有效

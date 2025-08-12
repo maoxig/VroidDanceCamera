@@ -1,4 +1,5 @@
-﻿using System;
+﻿#define VROIDCAMERA_HAS_GUI
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -185,6 +186,25 @@ namespace VroidDanceCamera
 #endif
                 return;
             }
+            // 读取GUI参数，兼容无GUI版本
+            float eyeHeight = 1.6f;
+            bool enableDanceCamera = true;
+#if VROIDCAMERA_HAS_GUI
+            var gui = CameraControlsGUI.Current;
+            if (gui != null)
+            {
+                eyeHeight = gui.eyeHeight;
+                enableDanceCamera = gui.enableDanceCamera;
+            }
+#endif
+
+            if (!enableDanceCamera)
+            {
+#if VROIDCAMERA_DEBUG
+        Debug.Log("[VroidFix] Dance Camera disabled, skipping sync.");
+#endif
+                return;
+            }
             // 查找 Camera_root/Camera_root_1/Camera 路径
             Transform cameraNode = animator.transform.Find("Camera_root/Camera_root_1/Camera");
             if (cameraNode == null) // 情况 b：路径不存在，使用默认镜头机制
@@ -233,31 +253,37 @@ namespace VroidDanceCamera
                 cameraComponent.enabled = false;
             }
 
-            // 情况 a 或 c：同步 vp_FPCamera 的位置、旋转和视野
-            var worldPos = cameraNode.position;
-            var worldRot = cameraNode.rotation;
-            __instance.transform.SetPositionAndRotation(worldPos, worldRot);
+            // 计算缩放比例
+            float scale = eyeHeight / 1.6f;
 
-            //// 同步视野（Field of View）
-            //if (cameraComponent != null)
-            //{
-            //    Camera playerCamera = __instance.GetComponent<Camera>();
-            //    if (playerCamera != null)
 
-            //    {
-            //        __instance.GetComponent<Camera>().fieldOfView = cameraComponent.fieldOfView;
 
-            // #if  VROIDCAMERA_DEBUG
-            //            Debug.Log($"[VroidFix] Synced vp_FPCamera FOV to {playerCamera.fieldOfView}.");
-            //        }
-            // #endif
-            //}
+            // 角色底部世界位置，用于相对偏移计算。  
+            // 这里用角色根节点的世界位置或DancerTransform位置作为参考点
+            Vector3 referencePos = animator.transform.position;
+
+            // 计算相机相对于角色根节点的偏移
+            Vector3 localOffset = cameraNode.position - referencePos;
+
+            // 对偏移做缩放
+            Vector3 scaledOffset = localOffset * scale;
+
+            // 计算最终相机世界位置
+            Vector3 finalCameraPos = referencePos + scaledOffset;
+
+            // 相机旋转直接用动画驱动的旋转，不缩放旋转
+            Quaternion finalCameraRot = cameraNode.rotation;
+
+            // 设置玩家摄像机位置和旋转
+            __instance.transform.SetPositionAndRotation(finalCameraPos, finalCameraRot);
 
 #if VROIDCAMERA_DEBUG
-            Debug.Log($"[VroidFix] Synced vp_FPCamera to Camera_root/Camera_root_1/Camera world transform at position: {worldPos}.");
+            Debug.Log($"[VroidFix] Synced camera position with scaled offset: {scaledOffset}, eyeHeight scale: {scale}");
 #endif
         }
+
     }
+
     // 按理来说视野和位置旋转应该在 LateUpdate 中处理，但似乎重生之后会导致CameraFix的优先级变了，然后会覆盖掉这个函数，导致无法运镜，这里先暂时拆开处理变换和视野
     [HarmonyPatch(typeof(EntityPlayerLocal), "LateUpdate")]
     public class Patch_CorrectCameraFieldOfViewLate
@@ -279,7 +305,23 @@ namespace VroidDanceCamera
             Transform cameraNode = animator.transform.Find("Camera_root/Camera_root_1/Camera");
             if (cameraNode == null) // 情况 b：路径不存在，使用默认镜头机制
                 return;
+            // 读取GUI参数，兼容无GUI版本
+            bool enableDanceCamera = true;
+#if VROIDCAMERA_HAS_GUI
+            var gui = CameraControlsGUI.Current;
+            if (gui != null)
+            {
+                enableDanceCamera = gui.enableDanceCamera;
+            }
+#endif
 
+            if (!enableDanceCamera)
+            {
+#if VROIDCAMERA_DEBUG
+        Debug.Log("[VroidFix] Dance Camera disabled, skipping sync.");
+#endif
+                return;
+            }
             // 查找父节点
             Transform cameraRoot1 = cameraNode.parent; // Camera_root_1
             Transform cameraRoot = cameraRoot1 != null ? cameraRoot1.parent : null; // Camera_root

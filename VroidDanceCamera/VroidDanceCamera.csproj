@@ -63,6 +63,26 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>E:\SteamLibrary\steamapps\common\7 Days To Die\7DaysToDie_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.IMGUIModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>E:\SteamLibrary\steamapps\common\7 Days To Die\7DaysToDie_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>E:\SteamLibrary\steamapps\common\7 Days To Die\7DaysToDie_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>E:\SteamLibrary\steamapps\common\7 Days To Die\7DaysToDie_Data\Managed\UnityEngine.InputModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>E:\SteamLibrary\steamapps\common\7 Days To Die\7DaysToDie_Data\Managed\UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>E:\SteamLibrary\steamapps\common\7 Days To Die\7DaysToDie_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+    </Reference>
     <Reference Include="VRoidMod">
       <HintPath>E:\SteamLibrary\steamapps\common\7 Days To Die\Mods\VRoidMod\VRoidMod.dll</HintPath>
     </Reference>
@@ -74,6 +94,7 @@
   <ItemGroup>
     <Compile Include="VroidCameraFix.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="VroidCameraGUI.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
